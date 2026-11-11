@@ -133,6 +133,11 @@ here because drug-label questions hinge on exact terms (drug names, section name
 | `MAX_EVIDENCE_CHARS` | `40000` (evidence sent to the critic; lower it on small rate limits) |
 | `MAX_HISTORY_TURNS` / `HISTORY_ANSWER_CHARS` | `4` / `1500` (conversation context given to the planner) |
 
+## Presentation
+
+`presentation/presentation.tex` (Beamer, compiled to `presentation/presentation.pdf`): build with
+`pdflatex presentation.tex` from that folder, or upload the folder to Overleaf.
+
 ## AI assistance
 
 Built with Claude as a coding assistant. The instructions it followed are in `CLAUDE.md`.
