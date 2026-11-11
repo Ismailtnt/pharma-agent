@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pharma Research Agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #657085; --border: #e2e5ea;
+    --accent: #1f5eff; --ok: #137a43; --ok-bg: #e6f5ec; --warn: #9a5b00; --warn-bg: #fff4e0;
+    --code: #f0f2f5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { background: var(--code); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 400; text-align: left; }
+  .chip:hover { border-color: var(--accent); }
+  .status { color: var(--muted); display: flex; align-items: center; gap: 10px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .answer h2, .answer h3, .answer h4 { font-size: 16px; margin: 16px 0 6px; }
+  .answer table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  .answer th, .answer td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .answer th { background: var(--code); }
+  .answer ul, .answer ol { padding-left: 22px; }
+  .cite { background: #e8eeff; color: var(--accent); border-radius: 4px; padding: 0 5px; font-size: 12px; white-space: nowrap; }
+  .badge { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .disclaimer { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 14px; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .src { background: var(--code); border-radius: 6px; padding: 2px 8px; font: 12px ui-monospace, monospace; }
+  .flags { margin: 10px 0 0; padding-left: 20px; color: var(--warn); font-size: 14px; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  .trace { font: 13px ui-monospace, monospace; background: var(--code); border-radius: 8px; padding: 10px; margin-top: 8px; overflow-x: auto; }
+  .trace div { margin: 3px 0; }
+  .error { color: #b00020; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pharma Research Agent</h1>
+  <p class="sub">Ask a question about the drug label corpus. The agent plans, searches with its tools, reviews its draft, then answers with citations.</p>
+
+  <div class="card">
+    <textarea id="question" placeholder="e.g. Compare the contraindications of warfarin and apixaban."></textarea>
+    <div class="row">
+      <button id="ask">Ask</button>
+      <span class="hint">Ctrl/⌘ + Enter to send</span>
+    </div>
+    <div class="examples" id="examples"></div>
+  </div>
+
+  <div id="output"></div>
+</main>
+
+<script>
+const EXAMPLES = [
+  "What are the main contraindications for warfarin?",
+  "Compare the contraindications of warfarin and apixaban. What conditions are shared and which are unique to each drug?",
+  "A patient currently on warfarin is prescribed sertraline. What is the risk of bleeding and what monitoring is recommended?",
+  "A patient with an eGFR of 25 mL/min is being considered for metformin. Is metformin contraindicated at this level of renal function, and what is the threshold?",
+];
+const STAGES = ["Planning sub-questions…", "Searching the corpus…", "Reviewing the draft…", "Finalising the answer…"];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+EXAMPLES.forEach((q) => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = q;
+  b.onclick = () => { $("question").value = q; ask(); };
+  $("examples").appendChild(b);
+});
+$("ask").onclick = ask;
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
+
+async function ask() {
+  const question = $("question").value.trim();
+  if (question.length < 3) return;
+  $("ask").disabled = true;
+  let stage = 0;
+  const render = () => $("output").innerHTML = `<div class="card status"><div class="spinner"></div>${STAGES[stage]}</div>`;
+  render();
+  const timer = setInterval(() => { stage = Math.min(stage + 1, STAGES.length - 1); render(); }, 4000);
+  try {
+    const res = await fetch("/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : res.statusText);
+    $("output").innerHTML = renderResult(data);
+  } catch (err) {
+    $("output").innerHTML = `<div class="card error">Request failed: ${esc(err.message)}</div>`;
+  } finally {
+    clearInterval(timer);
+    $("ask").disabled = false;
+  }
+}
+
+function renderResult(d) {
+  const r = d.review;
+  const flags = [...r.unsupported_claims.map((c) => "Unsupported: " + c), ...r.ambiguous_claims.map((c) => "Needs caution: " + c), ...r.missing.map((c) => "Not covered: " + c)];
+  const badge = r.revised
+    ? `<span class="badge warn">Revised after review</span>`
+    : `<span class="badge ok">Verified by reviewer</span>`;
+  return `
+  <div class="card">
+    <div class="meta">${badge}${d.sources.map((s) => `<span class="src">${esc(s)}</span>`).join("")}<span class="hint">${(d.latency_ms / 1000).toFixed(1)} s</span></div>
+    <div class="answer">${markdown(d.answer)}</div>
+    <div class="disclaimer">⚠ ${esc(d.disclaimer)}</div>
+    ${flags.length ? `<details open><summary>Reviewer notes (${flags.length})</summary><ul class="flags">${flags.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></details>` : ""}
+    <details><summary>Plan (${d.plan.length} steps)</summary><ol>${d.plan.map((p) => `<li>${esc(p)}</li>`).join("")}</ol></details>
+    <details><summary>Tool calls (${d.steps.length})</summary><div class="trace">${d.steps.map((s, i) =>
+      `<div>${i + 1}. <b>${esc(s.tool)}</b>(${esc(JSON.stringify(s.arguments))}) → ${esc(s.sources.join(", ") || "no result")}</div>`).join("") || "none"}</div></details>
+  </div>`;
+}
+
+// Small Markdown renderer: headings, lists, tables, bold/italic, code, citations.
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*])\*([^*]+)\*/g, "$1<i>$2</i>")
+    .replace(/\[([\w.\-]+\.(?:md|txt))\]/g, '<span class="cite">$1</span>');
+}
+function markdown(text) {
+  const lines = text.split("\n"); let html = ""; let list = null;
+  const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:\-|]+\|\s*$/.test(lines[i + 1])) {
+      closeList();
+      const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
+      html += "<table><tr>" + cells(line).map((c) => `<th>${c}</th>`).join("") + "</tr>";
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { html += "<tr>" + cells(lines[i]).map((c) => `<td>${c}</td>`).join("") + "</tr>"; i++; }
+      html += "</table>"; i--; continue;
+    }
+    let m;
+    if ((m = line.match(/^(#{1,4})\s+(.*)/))) { closeList(); html += `<h${m[1].length + 1}>${inline(m[2])}</h${m[1].length + 1}>`; }
+    else if ((m = line.match(/^\s*[-*]\s+(.*)/))) { if (list !== "ul") { closeList(); html += "<ul>"; list = "ul"; } html += `<li>${inline(m[1])}</li>`; }
+    else if ((m = line.match(/^\s*\d+\.\s+(.*)/))) { if (list !== "ol") { closeList(); html += "<ol>"; list = "ol"; } html += `<li>${inline(m[1])}</li>`; }
+    else if (line.trim() === "") { closeList(); }
+    else { closeList(); html += `<p>${inline(line)}</p>`; }
+  }
+  closeList();
+  return html;
+}
+</script>
+</body>
+</html>
