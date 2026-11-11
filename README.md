@@ -16,7 +16,8 @@ docker run -p 8000:8000 --env-file .env agent
 
 - UI: http://localhost:8000
 - Health: `GET /health` → `200`
-- Ask: `POST /ask` with `{"question": "..."}`
+- Ask: `POST /ask` with `{"question": "..."}`, optionally with `"history": [{"question": "...", "answer": "..."}]`
+  (earlier turns, oldest first) so follow-up questions like "and for apixaban?" are understood
 
 ```bash
 curl -X POST localhost:8000/ask -H "Content-Type: application/json" \
@@ -52,7 +53,8 @@ with code 1 if any question fails.
 question
    │
    ▼
-1. PLAN      LLM splits the question into 1-4 sub-questions (JSON)
+1. PLAN      LLM rewrites a follow-up as a standalone question (using the history),
+   │         then splits it into 1-4 sub-questions (JSON)
    │
    ▼
 2. RESEARCH  tool-calling loop (max 6 rounds) — the LLM picks the tools:
@@ -80,7 +82,7 @@ question
 | `app/local_embeddings.py` | TF-IDF vectors in numpy, used when no embeddings API is available |
 | `app/main.py` | FastAPI: `/health`, `/ask`, serves the UI |
 | `app/evaluate.py` | Runs the public evaluation questions and checks the cited sources |
-| `static/index.html` | Single-page UI: answer, citations, reviewer badge and notes, plan and tool trace |
+| `static/index.html` | Chat UI: conversation with follow-ups, citations, reviewer badge and notes, plan and tool trace; the chat is kept in the browser's localStorage |
 
 ## Design choices
 
@@ -98,6 +100,9 @@ question
   The index is built in the background at startup, so `/health` answers immediately.
 - **Critic with evidence.** The reviewer sees exactly the passages the agent read, so it can
   catch claims that came from the model's own knowledge.
+- **Conversation without extra cost.** The UI sends the earlier turns; the planner, which runs anyway,
+  rewrites a follow-up into a standalone question. Research, review and revision then work on that
+  question only, so the rest of the pipeline is unchanged and no extra LLM call is made.
 - **Deterministic safety.** The disclaimer is added by code, and the returned `sources` are
   only files that were both cited and actually read.
 
@@ -126,6 +131,7 @@ here because drug-label questions hinge on exact terms (drug names, section name
 | `CORPUS_DIR` | `corpus/` |
 | `MAX_TOOL_ROUNDS` / `TOP_K` / `CHUNK_MAX_CHARS` | `6` / `5` / `1500` |
 | `MAX_EVIDENCE_CHARS` | `40000` (evidence sent to the critic; lower it on small rate limits) |
+| `MAX_HISTORY_TURNS` / `HISTORY_ANSWER_CHARS` | `4` / `1500` (conversation context given to the planner) |
 
 ## AI assistance
 

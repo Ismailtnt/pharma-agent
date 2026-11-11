@@ -47,3 +47,38 @@ def test_ask_endpoint(index, monkeypatch):
 
 def test_ask_rejects_empty_question(index):
     assert TestClient(app).post("/ask", json={"question": ""}).status_code == 422
+
+
+def test_follow_up_question_is_resolved_with_history(index, monkeypatch):
+    seen = {}
+
+    def planner_with_history(system, user):
+        if "plan research" in system:
+            seen["planner_input"] = user
+            return {"standalone_question": "What are the contraindications of apixaban?",
+                    "sub_questions": ["What are apixaban's contraindications?"]}
+        return fake_chat_json(system, user)
+
+    def chat(messages, **kwargs):
+        seen.setdefault("research_question", messages[1]["content"])
+        return fake_chat(messages, **kwargs)
+
+    monkeypatch.setattr(llm, "chat", chat)
+    monkeypatch.setattr(llm, "chat_json", planner_with_history)
+
+    history = [{"question": "What are the contraindications of warfarin?", "answer": "Pregnancy [dailymed-warfarin.md]."}]
+    response = TestClient(app).post("/ask", json={"question": "And for apixaban?", "history": history})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "What are the contraindications of warfarin?" in seen["planner_input"]  # history reached the planner
+    assert seen["research_question"] == "What are the contraindications of apixaban?"  # research got the rewrite
+    assert data["question"] == "And for apixaban?"
+    assert data["standalone_question"] == "What are the contraindications of apixaban?"
+
+
+def test_question_without_history_is_its_own_standalone_question(index, monkeypatch):
+    monkeypatch.setattr(llm, "chat", fake_chat)
+    monkeypatch.setattr(llm, "chat_json", fake_chat_json)
+    data = TestClient(app).post("/ask", json={"question": "Warfarin contraindications?"}).json()
+    assert data["standalone_question"] == "Warfarin contraindications?"

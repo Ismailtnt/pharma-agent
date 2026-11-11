@@ -21,6 +21,12 @@ class ToolStep(BaseModel):
     sources: list[str]
 
 
+class Turn(BaseModel):
+    """One earlier exchange of the conversation, sent back by the client."""
+    question: str
+    answer: str
+
+
 class Review(BaseModel):
     verdict: str = "pass"
     unsupported_claims: list[str] = []
@@ -31,6 +37,7 @@ class Review(BaseModel):
 
 class AgentResult(BaseModel):
     question: str
+    standalone_question: str
     answer: str
     sources: list[str]
     plan: list[str]
@@ -40,23 +47,26 @@ class AgentResult(BaseModel):
     latency_ms: int = 0
 
 
-def ask(question: str) -> AgentResult:
+def ask(question: str, history: list[Turn] | None = None) -> AgentResult:
     started = time.perf_counter()
     index = get_index()
     sources = ", ".join(index.sources)
 
-    plan = make_plan(question, sources)
-    draft, evidence, steps = research(question, plan, sources)
+    # Follow-ups ("and for apixaban?") are rewritten as standalone questions by the planner,
+    # so the research, review and revision steps never need the conversation itself.
+    standalone, plan = make_plan(question, sources, history or [])
+    draft, evidence, steps = research(standalone, plan, sources)
     evidence_text = format_evidence(evidence)
 
-    review, feedback = critique(question, draft, evidence_text)
+    review, feedback = critique(standalone, draft, evidence_text)
     answer = draft
     if review.verdict == "revise":
-        answer = revise(question, draft, evidence_text, feedback) or draft
+        answer = revise(standalone, draft, evidence_text, feedback) or draft
         review.revised = True
 
     return AgentResult(
         question=question,
+        standalone_question=standalone,
         answer=answer.strip(),
         sources=cited_sources(answer, evidence),
         plan=plan,
@@ -67,10 +77,13 @@ def ask(question: str) -> AgentResult:
 
 
 # --- 1. Plan -----------------------------------------------------------------
-def make_plan(question: str, sources: str) -> list[str]:
-    data = llm.chat_json(prompts.PLANNER.format(sources=sources), question)
+def make_plan(question: str, sources: str, history: list[Turn]) -> tuple[str, list[str]]:
+    """Returns (standalone question, sub-questions)."""
+    user = prompts.PLANNER_INPUT.format(history=format_history(history), question=question) if history else question
+    data = llm.chat_json(prompts.PLANNER.format(sources=sources), user)
+    standalone = str(data.get("standalone_question") or "").strip() or question
     sub_questions = [str(q) for q in data.get("sub_questions", []) if str(q).strip()]
-    return sub_questions or [question]
+    return standalone, sub_questions or [standalone]
 
 
 # --- 2. Research (agent-driven tool use) -------------------------------------
@@ -140,6 +153,14 @@ def revise(question: str, draft: str, evidence_text: str, feedback: str) -> str:
 
 
 # --- Helpers -----------------------------------------------------------------
+def format_history(history: list[Turn]) -> str:
+    """Last few turns, answers shortened: enough to resolve follow-ups, cheap in tokens."""
+    turns = history[-config.MAX_HISTORY_TURNS:]
+    return "\n\n".join(
+        f"User: {t.question}\nAssistant: {t.answer[:config.HISTORY_ANSWER_CHARS]}" for t in turns
+    )
+
+
 def format_evidence(chunks: list[Chunk]) -> str:
     """Deduplicated evidence, capped in size, in the same format the model saw."""
     seen, parts, size = set(), [], 0

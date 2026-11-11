@@ -6,64 +6,128 @@
 <title>Pharma Research Agent</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #657085; --border: #e2e5ea;
-    --accent: #1f5eff; --ok: #137a43; --ok-bg: #e6f5ec; --warn: #9a5b00; --warn-bg: #fff4e0;
-    --code: #f0f2f5;
+    --bg: #ffffff; --panel: #f7f7f8; --text: #1f2328; --muted: #6b7280; --border: #e5e7eb;
+    --accent: #2563eb; --accent-text: #ffffff; --user-bg: #f1f3f6;
+    --ok: #15803d; --ok-bg: #e8f6ee; --warn: #9a5b00; --warn-bg: #fff6e5; --cite-bg: #e8efff;
+    --code: #f3f4f6; --danger: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181b; --panel: #202226; --text: #e7e9ee; --muted: #9aa1ad; --border: #2f3237;
+      --accent: #5b8cff; --user-bg: #26292e;
+      --ok: #5fd08f; --ok-bg: #1d3327; --warn: #f2b45c; --warn-bg: #3a2d17; --cite-bg: #233254;
+      --code: #26292e; --danger: #ff8a80;
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
-  textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; }
-  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
-  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 18px; font: inherit; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: wait; }
-  .hint { color: var(--muted); font-size: 13px; }
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .chip { background: var(--code); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 400; text-align: left; }
-  .chip:hover { border-color: var(--accent); }
-  .status { color: var(--muted); display: flex; align-items: center; gap: 10px; }
-  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .answer h2, .answer h3, .answer h4 { font-size: 16px; margin: 16px 0 6px; }
-  .answer table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
-  .answer th, .answer td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
-  .answer th { background: var(--code); }
-  .answer ul, .answer ol { padding-left: 22px; }
-  .cite { background: #e8eeff; color: var(--accent); border-radius: 4px; padding: 0 5px; font-size: 12px; white-space: nowrap; }
-  .badge { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
+         display: flex; flex-direction: column; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* Header */
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
+          display: grid; place-items: center; font-weight: 700; flex: none; }
+  header h1 { font-size: 16px; margin: 0; }
+  .health { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.down { background: var(--danger); }
+  .spacer { flex: 1; }
+  .ghost { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 14px; }
+  .ghost:hover { background: var(--panel); }
+
+  /* Conversation */
+  #scroll { flex: 1; overflow-y: auto; }
+  #thread { max-width: 780px; margin: 0 auto; padding: 24px 16px 8px; }
+  .msg { margin: 0 0 22px; }
+  .msg.user { display: flex; justify-content: flex-end; }
+  .msg.user .bubble { background: var(--user-bg); border-radius: 18px; padding: 9px 15px; max-width: 85%; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.bot { display: flex; gap: 12px; }
+  .msg.bot .logo { width: 28px; height: 28px; font-size: 14px; margin-top: 2px; }
+  .msg.bot .body { flex: 1; min-width: 0; }
+
+  /* Answer content */
+  .answer > :first-child { margin-top: 0; }
+  .answer p { margin: 0 0 10px; }
+  .answer h2, .answer h3, .answer h4, .answer h5 { font-size: 15px; margin: 16px 0 6px; }
+  .answer ul, .answer ol { padding-left: 22px; margin: 0 0 10px; }
+  .answer code { background: var(--code); border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+  .table-wrap { overflow-x: auto; margin: 8px 0 12px; }
+  .answer table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .answer th, .answer td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+  .answer th { background: var(--panel); }
+  .cite { background: var(--cite-bg); color: var(--accent); border-radius: 4px; padding: 0 5px; font-size: 12px; white-space: nowrap; }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; }
+  .badge { border-radius: 999px; padding: 2px 9px; font-weight: 600; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); }
   .badge.warn { background: var(--warn-bg); color: var(--warn); }
-  .disclaimer { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 14px; }
-  .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-  .src { background: var(--code); border-radius: 6px; padding: 2px 8px; font: 12px ui-monospace, monospace; }
-  .flags { margin: 10px 0 0; padding-left: 20px; color: var(--warn); font-size: 14px; }
-  details { margin-top: 10px; }
-  summary { cursor: pointer; color: var(--muted); font-weight: 600; }
-  .trace { font: 13px ui-monospace, monospace; background: var(--code); border-radius: 8px; padding: 10px; margin-top: 8px; overflow-x: auto; }
-  .trace div { margin: 3px 0; }
-  .error { color: #b00020; }
+  .src { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; font-family: ui-monospace, monospace; }
+  .muted { color: var(--muted); }
+  .icon-btn { background: none; border: 0; padding: 2px 6px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+  .icon-btn:hover { background: var(--panel); color: var(--text); }
+  .disclaimer { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  details { margin-top: 8px; font-size: 14px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; user-select: none; }
+  .details { border-left: 2px solid var(--border); padding: 4px 0 4px 12px; margin-top: 6px; }
+  .details h4 { margin: 8px 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .details ol, .details ul { margin: 0; padding-left: 20px; }
+  .flags li { color: var(--warn); }
+  .trace { font: 12px ui-monospace, monospace; background: var(--code); border-radius: 8px; padding: 8px 10px; overflow-x: auto; }
+  .trace div { white-space: nowrap; }
+
+  .thinking { display: flex; align-items: center; gap: 10px; color: var(--muted); min-height: 28px; }
+  .dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .dots span:nth-child(2) { animation-delay: .2s; } .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  .error { color: var(--danger); }
+
+  /* Empty state */
+  .welcome { text-align: center; padding: 6vh 0 12px; }
+  .welcome .logo { width: 44px; height: 44px; font-size: 22px; margin: 0 auto 12px; border-radius: 12px; }
+  .welcome h2 { margin: 0 0 6px; font-size: 22px; }
+  .welcome p { margin: 0 auto 22px; color: var(--muted); max-width: 520px; }
+  .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+  .example { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; text-align: left; }
+  .example:hover { background: var(--panel); }
+
+  @media (max-width: 600px) { .examples { grid-template-columns: 1fr; } header h1 { font-size: 15px; } .health { display: none; } }
+
+  /* Composer */
+  footer { padding: 8px 16px 14px; }
+  .composer { max-width: 780px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; border: 1px solid var(--border);
+              border-radius: 22px; padding: 8px 8px 8px 16px; background: var(--panel); }
+  .composer:focus-within { border-color: var(--accent); }
+  textarea { flex: 1; border: 0; background: transparent; color: var(--text); resize: none; font: inherit; padding: 6px 0;
+             max-height: 200px; outline: none; }
+  #send { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-text);
+          display: grid; place-items: center; flex: none; }
+  #send:disabled { opacity: .35; cursor: default; }
+  .note { max-width: 780px; margin: 6px auto 0; text-align: center; font-size: 12px; color: var(--muted); }
 </style>
 </head>
 <body>
-<main>
+<header>
+  <div class="logo">℞</div>
   <h1>Pharma Research Agent</h1>
-  <p class="sub">Ask a question about the drug label corpus. The agent plans, searches with its tools, reviews its draft, then answers with citations.</p>
+  <span class="health" id="health"><span class="dot"></span><span>checking…</span></span>
+  <span class="spacer"></span>
+  <button class="ghost" id="new-chat" title="Start a new conversation">＋ New chat</button>
+</header>
 
-  <div class="card">
-    <textarea id="question" placeholder="e.g. Compare the contraindications of warfarin and apixaban."></textarea>
-    <div class="row">
-      <button id="ask">Ask</button>
-      <span class="hint">Ctrl/⌘ + Enter to send</span>
-    </div>
-    <div class="examples" id="examples"></div>
-  </div>
+<div id="scroll"><div id="thread"></div></div>
 
-  <div id="output"></div>
-</main>
+<footer>
+  <form class="composer" id="form">
+    <textarea id="input" rows="1" placeholder="Ask about warfarin, apixaban, metformin…" aria-label="Your question"></textarea>
+    <button id="send" type="submit" aria-label="Send" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+  </form>
+  <div class="note">Answers come only from the drug-label corpus, with citations. Not medical advice.</div>
+</footer>
 
 <script>
 const EXAMPLES = [
@@ -72,65 +136,161 @@ const EXAMPLES = [
   "A patient currently on warfarin is prescribed sertraline. What is the risk of bleeding and what monitoring is recommended?",
   "A patient with an eGFR of 25 mL/min is being considered for metformin. Is metformin contraindicated at this level of renal function, and what is the threshold?",
 ];
-const STAGES = ["Planning sub-questions…", "Searching the corpus…", "Reviewing the draft…", "Finalising the answer…"];
+const STAGES = ["Planning sub-questions…", "Searching the corpus…", "Reading sections…", "Reviewing the draft…", "Finalising the answer…"];
+const STORAGE_KEY = "pharma-agent-chat";
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-EXAMPLES.forEach((q) => {
-  const b = document.createElement("button");
-  b.className = "chip"; b.textContent = q;
-  b.onclick = () => { $("question").value = q; ask(); };
-  $("examples").appendChild(b);
-});
-$("ask").onclick = ask;
-$("question").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
+// Conversation: [{question, result?, error?, pending?}]
+let turns = load();
+let busy = false;
 
-async function ask() {
-  const question = $("question").value.trim();
-  if (question.length < 3) return;
-  $("ask").disabled = true;
-  let stage = 0;
-  const render = () => $("output").innerHTML = `<div class="card status"><div class="spinner"></div>${STAGES[stage]}</div>`;
-  render();
-  const timer = setInterval(() => { stage = Math.min(stage + 1, STAGES.length - 1); render(); }, 4000);
+function load() {
+  try { return (JSON.parse(localStorage.getItem(STORAGE_KEY)) || []).filter((t) => t.result || t.error); }
+  catch { return []; }
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(turns.filter((t) => !t.pending))); } catch { /* storage unavailable */ }
+}
+
+// ---------- Rendering ----------
+function render() {
+  const thread = $("thread");
+  if (!turns.length) {
+    thread.innerHTML = `
+      <div class="welcome">
+        <div class="logo">℞</div>
+        <h2>What would you like to research?</h2>
+        <p>The agent plans, searches the drug labels with its tools, has a reviewer check every claim, then answers with citations. Ask follow-up questions in the same chat.</p>
+        <div class="examples">${EXAMPLES.map((q, i) => `<button class="example" data-i="${i}">${esc(q)}</button>`).join("")}</div>
+      </div>`;
+    thread.querySelectorAll(".example").forEach((b) => b.onclick = () => send(EXAMPLES[b.dataset.i]));
+    return;
+  }
+  thread.innerHTML = turns.map((t, i) => `
+    <div class="msg user"><div class="bubble">${esc(t.question)}</div></div>
+    <div class="msg bot"><div class="logo">℞</div><div class="body">${botBody(t, i)}</div></div>`).join("");
+  thread.querySelectorAll("[data-copy]").forEach((b) => b.onclick = () => copy(b, turns[b.dataset.copy].result.answer));
+  thread.querySelectorAll("[data-retry]").forEach((b) => b.onclick = () => retry(+b.dataset.retry));
+}
+
+function botBody(t, i) {
+  if (t.pending) return `<div class="thinking"><span class="dots"><span></span><span></span><span></span></span><span id="stage">${STAGES[t.stage || 0]}</span></div>`;
+  if (t.error) return `<div class="error">Something went wrong: ${esc(t.error)}</div>
+    <div class="meta"><button class="ghost" data-retry="${i}">Retry</button></div>`;
+
+  const d = t.result, r = d.review;
+  const flags = [
+    ...r.unsupported_claims.map((c) => "Unsupported: " + c),
+    ...r.ambiguous_claims.map((c) => "Needs caution: " + c),
+    ...r.missing.map((c) => "Not covered: " + c),
+  ];
+  const badge = r.revised
+    ? `<span class="badge warn" title="The reviewer found issues and the answer was rewritten">Revised after review</span>`
+    : `<span class="badge ok" title="The reviewer checked every claim against the documents">Verified by reviewer</span>`;
+  const rephrased = d.standalone_question && d.standalone_question !== d.question
+    ? `<h4>Understood as</h4><div>${esc(d.standalone_question)}</div>` : "";
+  return `
+    <div class="answer">${markdown(d.answer)}</div>
+    <div class="meta">
+      ${badge}
+      ${d.sources.map((s) => `<span class="src">${esc(s)}</span>`).join("")}
+      <span class="muted">${(d.latency_ms / 1000).toFixed(1)} s</span>
+      <button class="icon-btn" data-copy="${i}" title="Copy answer">Copy</button>
+    </div>
+    <div class="disclaimer">⚠ ${esc(d.disclaimer)}</div>
+    <details${flags.length ? " open" : ""}>
+      <summary>How this answer was built${flags.length ? ` · ${flags.length} reviewer note${flags.length > 1 ? "s" : ""}` : ""}</summary>
+      <div class="details">
+        ${flags.length ? `<h4>Reviewer notes</h4><ul class="flags">${flags.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+        ${rephrased}
+        <h4>Plan</h4><ol>${d.plan.map((p) => `<li>${esc(p)}</li>`).join("")}</ol>
+        <h4>Tool calls (${d.steps.length})</h4>
+        <div class="trace">${d.steps.map((s, n) =>
+          `<div>${n + 1}. <b>${esc(s.tool)}</b>(${esc(JSON.stringify(s.arguments))}) → ${esc(s.sources.join(", ") || "no result")}</div>`).join("") || "none"}</div>
+      </div>
+    </details>`;
+}
+
+function scrollToBottom() { const s = $("scroll"); s.scrollTop = s.scrollHeight; }
+
+// ---------- Sending ----------
+async function send(text) {
+  const question = (text ?? $("input").value).trim();
+  if (question.length < 3 || busy) return;
+  $("input").value = ""; autosize(); updateSend();
+  turns.push({ question });
+  await run(turns.length - 1);
+}
+
+async function retry(i) {
+  if (busy) return;
+  turns[i] = { question: turns[i].question };
+  await run(i);
+}
+
+async function run(i) {
+  busy = true; updateSend();
+  const turn = turns[i];
+  turn.pending = true; turn.stage = 0;
+  render(); scrollToBottom();
+  const timer = setInterval(() => {
+    turn.stage = Math.min(turn.stage + 1, STAGES.length - 1);
+    const el = $("stage"); if (el) el.textContent = STAGES[turn.stage];
+  }, 4000);
+
+  // Earlier successful turns give the agent the context for follow-up questions.
+  const history = turns.slice(0, i).filter((t) => t.result).map((t) => ({ question: t.question, answer: t.result.answer }));
   try {
-    const res = await fetch("/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : res.statusText);
-    $("output").innerHTML = renderResult(data);
+    const res = await fetch("/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: turn.question, history }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : (data.detail ? JSON.stringify(data.detail) : res.statusText));
+    turn.result = data;
   } catch (err) {
-    $("output").innerHTML = `<div class="card error">Request failed: ${esc(err.message)}</div>`;
+    turn.error = err.message || "request failed";
   } finally {
     clearInterval(timer);
-    $("ask").disabled = false;
+    delete turn.pending; delete turn.stage;
+    busy = false; updateSend();
+    save(); render(); scrollToBottom();
+    $("input").focus();
   }
 }
 
-function renderResult(d) {
-  const r = d.review;
-  const flags = [...r.unsupported_claims.map((c) => "Unsupported: " + c), ...r.ambiguous_claims.map((c) => "Needs caution: " + c), ...r.missing.map((c) => "Not covered: " + c)];
-  const badge = r.revised
-    ? `<span class="badge warn">Revised after review</span>`
-    : `<span class="badge ok">Verified by reviewer</span>`;
-  return `
-  <div class="card">
-    <div class="meta">${badge}${d.sources.map((s) => `<span class="src">${esc(s)}</span>`).join("")}<span class="hint">${(d.latency_ms / 1000).toFixed(1)} s</span></div>
-    <div class="answer">${markdown(d.answer)}</div>
-    <div class="disclaimer">⚠ ${esc(d.disclaimer)}</div>
-    ${flags.length ? `<details open><summary>Reviewer notes (${flags.length})</summary><ul class="flags">${flags.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></details>` : ""}
-    <details><summary>Plan (${d.plan.length} steps)</summary><ol>${d.plan.map((p) => `<li>${esc(p)}</li>`).join("")}</ol></details>
-    <details><summary>Tool calls (${d.steps.length})</summary><div class="trace">${d.steps.map((s, i) =>
-      `<div>${i + 1}. <b>${esc(s.tool)}</b>(${esc(JSON.stringify(s.arguments))}) → ${esc(s.sources.join(", ") || "no result")}</div>`).join("") || "none"}</div></details>
-  </div>`;
+async function copy(button, text) {
+  try { await navigator.clipboard.writeText(text); button.textContent = "Copied"; }
+  catch { button.textContent = "Copy failed"; }
+  setTimeout(() => button.textContent = "Copy", 1500);
 }
 
-// Small Markdown renderer: headings, lists, tables, bold/italic, code, citations.
+// ---------- Composer ----------
+function autosize() { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }
+function updateSend() { $("send").disabled = busy || $("input").value.trim().length < 3; }
+
+$("form").onsubmit = (e) => { e.preventDefault(); send(); };
+$("input").addEventListener("input", () => { autosize(); updateSend(); });
+$("input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+});
+$("new-chat").onclick = () => { if (busy) return; turns = []; save(); render(); $("input").focus(); };
+
+// ---------- Health ----------
+fetch("/health").then((r) => r.json()).then((h) => {
+  $("health").innerHTML = `<span class="dot ok"></span><span>${esc(h.model)} · ${esc(h.provider)}</span>`;
+}).catch(() => {
+  $("health").innerHTML = `<span class="dot down"></span><span>API unreachable</span>`;
+});
+
+// ---------- Small Markdown renderer: headings, lists, tables, bold/italic, code, citations ----------
 function inline(s) {
   return esc(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/(^|[^*])\*([^*]+)\*/g, "$1<i>$2</i>")
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>")
     .replace(/\[([\w.\-]+\.(?:md|txt))\]/g, '<span class="cite">$1</span>');
 }
 function markdown(text) {
@@ -141,10 +301,10 @@ function markdown(text) {
     if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:\-|]+\|\s*$/.test(lines[i + 1])) {
       closeList();
       const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
-      html += "<table><tr>" + cells(line).map((c) => `<th>${c}</th>`).join("") + "</tr>";
+      html += '<div class="table-wrap"><table><tr>' + cells(line).map((c) => `<th>${c}</th>`).join("") + "</tr>";
       i += 2;
       while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { html += "<tr>" + cells(lines[i]).map((c) => `<td>${c}</td>`).join("") + "</tr>"; i++; }
-      html += "</table>"; i--; continue;
+      html += "</table></div>"; i--; continue;
     }
     let m;
     if ((m = line.match(/^(#{1,4})\s+(.*)/))) { closeList(); html += `<h${m[1].length + 1}>${inline(m[2])}</h${m[1].length + 1}>`; }
@@ -156,6 +316,10 @@ function markdown(text) {
   closeList();
   return html;
 }
+
+render();
+scrollToBottom();
+$("input").focus();
 </script>
 </body>
 </html>

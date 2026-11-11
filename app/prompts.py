@@ -3,10 +3,20 @@
 PLANNER = """You plan research for questions about a pharmacology document corpus.
 Available files: {sources}
 
-Break the user's question into 1-4 short, self-contained sub-questions that together answer it.
+The user may be in a conversation. If earlier turns are given, first rewrite the new question as a
+standalone question that keeps its meaning (resolve "it", "this drug", "and for apixaban?"...).
+If the question is already self-contained, keep it as is.
+
+Break the standalone question into 1-4 short, self-contained sub-questions that together answer it.
 For a simple lookup, one sub-question is enough. Name the drugs involved.
 
-Return JSON only: {{"sub_questions": ["..."], "drugs": ["..."]}}"""
+Return JSON only: {{"standalone_question": "...", "sub_questions": ["..."], "drugs": ["..."]}}"""
+
+PLANNER_INPUT = """EARLIER CONVERSATION:
+{history}
+
+NEW QUESTION:
+{question}"""
 
 RESEARCHER = """You are a pharmacology research assistant. You answer ONLY from the documents you read with your tools.
 Available files: {sources}

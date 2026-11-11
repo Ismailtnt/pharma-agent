@@ -37,6 +37,8 @@ app = FastAPI(title="Pharma Research Agent", lifespan=lifespan)
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
+    # Optional earlier turns of the conversation, oldest first (the UI sends them for follow-ups).
+    history: list[agent.Turn] = Field(default_factory=list, max_length=50)
 
 
 @app.get("/health")
@@ -54,7 +56,7 @@ def health() -> dict:
 def ask(request: AskRequest) -> agent.AgentResult:
     # Sync endpoint: FastAPI runs it in a thread pool, so blocking LLM calls are fine.
     try:
-        return agent.ask(request.question.strip())
+        return agent.ask(request.question.strip(), request.history)
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
     except Exception as error:

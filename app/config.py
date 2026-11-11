@@ -37,6 +37,9 @@ MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", "6"))
 TOP_K = int(os.getenv("TOP_K", "5"))
 CHUNK_MAX_CHARS = int(os.getenv("CHUNK_MAX_CHARS", "1500"))
 MAX_EVIDENCE_CHARS = int(os.getenv("MAX_EVIDENCE_CHARS", "40000"))
+# Conversation context sent to the planner to resolve follow-up questions.
+MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "4"))
+HISTORY_ANSWER_CHARS = int(os.getenv("HISTORY_ANSWER_CHARS", "1500"))
 
 DISCLAIMER = (
     "This answer is generated from a limited document set for a technical demonstration. "
