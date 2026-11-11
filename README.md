@@ -32,6 +32,20 @@ python -m app.agent "Compare the contraindications of warfarin and apixaban"   #
 pytest -q                                                                     # offline tests
 ```
 
+## Evaluation
+
+`app/evaluate.py` runs the 4 public evaluation questions and checks that every expected
+source file is cited in the answer's `sources` (extra files are allowed).
+
+```bash
+python -m app.evaluate                              # agent in-process (needs a key in .env)
+python -m app.evaluate --url http://localhost:8000  # against a running API / Docker container
+python -m app.evaluate --show-answers --out eval-results.json
+```
+
+It prints PASS/FAIL per question with the sources, reviewer verdict and tools used, and exits
+with code 1 if any question fails.
+
 ## How it works
 
 ```
@@ -65,6 +79,7 @@ question
 | `app/llm.py` | OpenAI-compatible client (OpenAI, LiteLLM proxy or Groq) and embedder choice |
 | `app/local_embeddings.py` | TF-IDF vectors in numpy, used when no embeddings API is available |
 | `app/main.py` | FastAPI: `/health`, `/ask`, serves the UI |
+| `app/evaluate.py` | Runs the public evaluation questions and checks the cited sources |
 | `static/index.html` | Single-page UI: answer, citations, reviewer badge and notes, plan and tool trace |
 
 ## Design choices
